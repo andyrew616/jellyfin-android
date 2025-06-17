@@ -12,6 +12,9 @@ import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import org.jellyfin.mobile.data.dao.DownloadDao
+import org.jellyfin.mobile.app.AppPreferences
+import org.jellyfin.mobile.downloads.DownloadMethod
+import org.jellyfin.mobile.downloads.DownloadUtils
 import org.jellyfin.mobile.player.PlayerException
 import org.jellyfin.mobile.player.PlayerViewModel
 import org.jellyfin.mobile.player.deviceprofile.DeviceProfileBuilder
@@ -34,6 +37,7 @@ import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 
@@ -65,19 +69,21 @@ class QueueManager(
         currentQueue = playOptions.ids
         currentQueueIndex = playOptions.startIndex
 
+        cacheTracks(playOptions.ids)
+
         val itemId = when {
             currentQueue.isNotEmpty() -> currentQueue[currentQueueIndex]
             else -> playOptions.mediaSourceId?.toUUIDOrNull()
         } ?: return PlayerException.InvalidPlayOptions()
 
-        when (playOptions.playFromDownloads) {
-            true -> playOptions.mediaSourceId?.let {
-                startDownloadPlayback(
-                    mediaSourceId = it,
-                    playWhenReady = true,
-                )
-            }
-            else -> startRemotePlayback(
+        val downloadDao: DownloadDao = get()
+        if (downloadDao.downloadExists(itemId.toString())) {
+            startDownloadPlayback(
+                mediaSourceId = itemId.toString(),
+                playWhenReady = true,
+            )
+        } else {
+            startRemotePlayback(
                 itemId = itemId,
                 mediaSourceId = playOptions.mediaSourceId,
                 maxStreamingBitrate = null,
@@ -89,6 +95,25 @@ class QueueManager(
         }
 
         return null
+    }
+
+    private fun cacheTracks(ids: List<UUID>) {
+        viewModel.viewModelScope.launch {
+            val downloadDao: DownloadDao = get()
+            val appPreferences: AppPreferences = get()
+            val method = appPreferences.downloadMethod ?: DownloadMethod.WIFI_ONLY
+            ids.forEach { id ->
+                if (!downloadDao.downloadExists(id.toString())) {
+                    val url = apiClient.createUrl("Items/${'$'}id/Download")
+                    val utils = DownloadUtils(viewModel.getApplication(), id.toString(), url, method)
+                    runCatching { utils.download() }
+                }
+            }
+        }
+    }
+
+    fun cacheCurrentQueue() {
+        cacheTracks(currentQueue)
     }
 
     private suspend fun startDownloadPlayback(
@@ -205,18 +230,20 @@ class QueueManager(
 
     suspend fun next(): Boolean {
         if (!hasNext()) return false
-
-        when (val currentMediaSource = getCurrentMediaSourceOrNull()) {
-            is LocalJellyfinMediaSource -> startDownloadPlayback(
-                mediaSourceId = currentMediaSource.id,
+        val nextId = currentQueue[++currentQueueIndex]
+        val downloadDao: DownloadDao = get()
+        if (downloadDao.downloadExists(nextId.toString())) {
+            startDownloadPlayback(
+                mediaSourceId = nextId.toString(),
                 playWhenReady = true,
             )
-            is RemoteJellyfinMediaSource -> startRemotePlayback(
-                itemId = currentQueue[++currentQueueIndex],
+        } else {
+            val currentMediaSource = getCurrentMediaSourceOrNull() as? RemoteJellyfinMediaSource
+            startRemotePlayback(
+                itemId = nextId,
                 mediaSourceId = null,
-                maxStreamingBitrate = currentMediaSource.maxStreamingBitrate,
+                maxStreamingBitrate = currentMediaSource?.maxStreamingBitrate,
             )
-            null -> return false
         }
         return true
     }

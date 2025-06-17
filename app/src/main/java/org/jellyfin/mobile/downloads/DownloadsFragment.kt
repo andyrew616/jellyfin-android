@@ -46,6 +46,16 @@ class DownloadsFragment : Fragment(), KoinComponent {
         )
         binding.recyclerView.adapter = adapter
 
+        binding.clearCacheButton.setOnClickListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewModel.downloads.value.forEach { download ->
+                    activityEventHandler.emit(
+                        ActivityEvent.RemoveDownload(download.mediaSource, true)
+                    )
+                }
+            }
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.downloads.collect { downloads ->
