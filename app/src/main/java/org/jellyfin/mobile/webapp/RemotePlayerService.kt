@@ -144,6 +144,13 @@ class RemotePlayerService : Service(), CoroutineScope {
     }
 
     override fun onUnbind(intent: Intent): Boolean {
+        currentItemId?.let { id ->
+            val position = playbackState?.position
+            if (position != null && position != PlaybackState.PLAYBACK_POSITION_UNKNOWN) {
+                appPreferences.lastPlayedItemId = id
+                appPreferences.lastPlayedPosition = position
+            }
+        }
         onStopped()
         return super.onUnbind(intent)
     }
@@ -152,8 +159,20 @@ class RemotePlayerService : Service(), CoroutineScope {
         if (mediaSession == null) {
             initMediaSession()
         }
+        maybeResumeLast()
         handleIntent(intent)
         return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun maybeResumeLast() {
+        val itemId = appPreferences.lastPlayedItemId
+        val position = appPreferences.lastPlayedPosition
+        if (itemId != null && position != null && position >= 0) {
+            webappFunctionChannel.call("window.NavigationHelper.playbackManager.playItem('$itemId');")
+            webappFunctionChannel.seekTo(position)
+            appPreferences.lastPlayedItemId = null
+            appPreferences.lastPlayedPosition = null
+        }
     }
 
     private fun startWakelock() {
