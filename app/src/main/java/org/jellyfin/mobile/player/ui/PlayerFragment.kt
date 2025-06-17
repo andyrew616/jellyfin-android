@@ -337,6 +337,10 @@ class PlayerFragment : Fragment(), BackPressInterceptor {
         viewModel.skipToNext()
     }
 
+    fun cacheCurrentPlaylist() {
+        viewModel.cacheCurrentPlaylist()
+    }
+
     fun onPopupDismissed() {
         if (!AndroidVersion.isAtLeastR) {
             updateFullscreenState(resources.configuration)

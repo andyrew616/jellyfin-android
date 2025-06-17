@@ -111,7 +111,6 @@ class DownloadUtils(
                     !isNetworkRoaming()
                 }
             }
-            else -> true
         }
 
         if (!validConnection) throw IOException(context.getString(R.string.failed_network_method_check))

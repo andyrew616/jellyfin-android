@@ -77,10 +77,13 @@ import org.jellyfin.sdk.model.api.PlaybackProgressInfo
 import org.jellyfin.sdk.model.api.PlaybackStartInfo
 import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import org.jellyfin.sdk.model.api.RepeatMode
+import kotlinx.serialization.json.Json
+import org.jellyfin.mobile.data.entity.OfflinePlaybackStatEntity
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.qualifier.named
+import org.jellyfin.mobile.data.dao.OfflinePlaybackStatDao
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -91,6 +94,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
     private val playStateApi: PlayStateApi = apiClient.playStateApi
     private val hlsSegmentApi: HlsSegmentApi = apiClient.hlsSegmentApi
     private val userApi: UserApi = apiClient.userApi
+    private val offlineDao: OfflinePlaybackStatDao by inject()
 
     private val lifecycleObserver = PlayerLifecycleObserver(this)
     private val audioManager: AudioManager by lazy { getApplication<Application>().getSystemService()!! }
@@ -340,6 +344,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
             )
         } catch (e: ApiClientException) {
             Timber.e(e, "Failed to report playback start")
+            val info = PlaybackStartInfo(
+                itemId = mediaSource.itemId,
+                playMethod = mediaSource.playMethod,
+                playSessionId = mediaSource.playSessionId,
+                audioStreamIndex = mediaSource.selectedAudioStream?.index,
+                subtitleStreamIndex = mediaSource.selectedSubtitleStream?.index,
+                isPaused = !isPlaying,
+                isMuted = false,
+                canSeek = true,
+                positionTicks = mediaSource.startTimeMs * Constants.TICKS_PER_MILLISECOND,
+                volumeLevel = audioManager.getVolumeLevelPercent(),
+                repeatMode = RepeatMode.REPEAT_NONE,
+                playbackOrder = PlaybackOrder.DEFAULT,
+            )
+            offlineDao.insert(
+                OfflinePlaybackStatEntity(
+                    eventType = "start",
+                    eventJson = Json.encodeToString(PlaybackStartInfo.serializer(), info),
+                )
+            )
         }
     }
 
@@ -351,8 +375,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
             val volumeRange = audioManager.getVolumeRange(stream)
             val currentVolume = audioManager.getStreamVolume(stream)
             try {
-                playStateApi.reportPlaybackProgress(
-                    PlaybackProgressInfo(
+                val info = PlaybackProgressInfo(
                         itemId = mediaSource.itemId,
                         playMethod = mediaSource.playMethod,
                         playSessionId = mediaSource.playSessionId,
@@ -365,10 +388,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
                         volumeLevel = (currentVolume - volumeRange.first) * Constants.PERCENT_MAX / volumeRange.width,
                         repeatMode = RepeatMode.REPEAT_NONE,
                         playbackOrder = PlaybackOrder.DEFAULT,
-                    ),
                 )
+                playStateApi.reportPlaybackProgress(info)
             } catch (e: ApiClientException) {
                 Timber.e(e, "Failed to report playback progress")
+                offlineDao.insert(
+                    OfflinePlaybackStatEntity(
+                        eventType = "progress",
+                        eventJson = Json.encodeToString(PlaybackProgressInfo.serializer(), info),
+                    )
+                )
             }
         }
     }
@@ -405,6 +434,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
                 stopTranscoding(mediaSource)
             } catch (e: ApiClientException) {
                 Timber.e(e, "Failed to report playback stop")
+                val info = PlaybackStopInfo(
+                    itemId = mediaSource.itemId,
+                    positionTicks = lastPositionTicks,
+                    playSessionId = mediaSource.playSessionId,
+                    liveStreamId = mediaSource.liveStreamId,
+                    failed = false,
+                )
+                offlineDao.insert(
+                    OfflinePlaybackStatEntity(
+                        eventType = "stop",
+                        eventJson = Json.encodeToString(PlaybackStopInfo.serializer(), info),
+                    )
+                )
             }
         }
     }
@@ -491,6 +533,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
         viewModelScope.launch {
             queueManager.next()
         }
+    }
+
+    fun cacheCurrentPlaylist() {
+        queueManager.cacheCurrentQueue()
     }
 
     fun getStateAndPause(): PlayState? {

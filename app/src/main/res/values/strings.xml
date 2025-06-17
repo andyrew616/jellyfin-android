@@ -125,6 +125,7 @@
     <string name="pref_download_location">Download location</string>
     <string name="view_downloads">View downloads</string>
     <string name="downloads">Downloads</string>
+    <string name="clear_cache">Clear cache</string>
     <string name="download_notifications_description">Download notifications</string>
     <string name="failed_thumbnail">Failed to download thumbnail</string>
     <string name="failed_information">Failed to retrieve media information</string>

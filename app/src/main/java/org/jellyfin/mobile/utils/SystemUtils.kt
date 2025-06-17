@@ -80,11 +80,6 @@ suspend fun MainActivity.requestDownload(uri: Uri, filename: String) {
                 appPreferences.downloadMethod = selectedDownloadMethod
                 continuation.resume(selectedDownloadMethod)
             }
-            .setNeutralButton(R.string.mobile_data_and_roaming) { _, _ ->
-                val selectedDownloadMethod = DownloadMethod.MOBILE_AND_ROAMING
-                appPreferences.downloadMethod = selectedDownloadMethod
-                continuation.resume(selectedDownloadMethod)
-            }
             .setOnDismissListener {
                 continuation.cancel(null)
             }

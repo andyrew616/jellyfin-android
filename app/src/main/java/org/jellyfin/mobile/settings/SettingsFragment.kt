@@ -219,11 +219,6 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
                 R.string.mobile_data,
                 R.string.mobile_data_summary,
             ),
-            SelectionItem(
-                DownloadMethod.MOBILE_AND_ROAMING,
-                R.string.mobile_data_and_roaming,
-                R.string.mobile_data_and_roaming_summary,
-            ),
         )
         singleChoice(Constants.PREF_DOWNLOAD_METHOD, downloadMethods) {
             titleRes = R.string.network_title

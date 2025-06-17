@@ -158,6 +158,7 @@ dependencies {
     implementation(libs.bundles.androidx.room)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.work.runtime)
 
     // Monitoring
     implementation(libs.timber)
