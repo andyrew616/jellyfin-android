@@ -1,6 +1,7 @@
 plugins {
-    `kotlin-dsl` version "4.1.0"
+    `kotlin-dsl`
 }
+
 
 repositories {
     mavenCentral()
