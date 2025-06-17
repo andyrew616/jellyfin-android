@@ -46,6 +46,9 @@ object Constants {
     const val PREF_DOWNLOAD_INTERNAL = "pref_download_internal"
     const val PREF_MEDIA_SEGMENT_ACTIONS = "pref_media_segment_actions"
 
+    const val LAST_PLAYED_ITEM_ID = "last_played_item_id"
+    const val LAST_PLAYED_POSITION = "last_played_position"
+
     // InputManager commands
     const val PLAYBACK_MANAGER_COMMAND_PLAY = "unpause"
     const val PLAYBACK_MANAGER_COMMAND_PAUSE = "pause"

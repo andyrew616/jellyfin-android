@@ -153,4 +153,30 @@ class AppPreferences(context: Context) {
     var externalPlayerApp: String
         get() = sharedPreferences.getString(Constants.PREF_EXTERNAL_PLAYER_APP, ExternalPlayerPackage.SYSTEM_DEFAULT)!!
         set(value) = sharedPreferences.edit { putString(Constants.PREF_EXTERNAL_PLAYER_APP, value) }
+
+    var lastPlayedItemId: String?
+        get() = sharedPreferences.getString(Constants.LAST_PLAYED_ITEM_ID, null)
+        set(
+            value
+        ) {
+            sharedPreferences.edit {
+                if (value != null) putString(
+                    Constants.LAST_PLAYED_ITEM_ID,
+                    value,
+                ) else remove(Constants.LAST_PLAYED_ITEM_ID)
+            }
+        }
+
+    var lastPlayedPosition: Long?
+        get() = sharedPreferences.getLong(Constants.LAST_PLAYED_POSITION, -1L).takeIf { it >= 0 }
+        set(
+            value
+        ) {
+            sharedPreferences.edit {
+                if (value != null) putLong(
+                    Constants.LAST_PLAYED_POSITION,
+                    value,
+                ) else remove(Constants.LAST_PLAYED_POSITION)
+            }
+        }
 }
